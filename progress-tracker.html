@@ -1,0 +1,2318 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Progress Tracker — Daily Growth Dashboard</title>
+
+  <!-- ═══════════════════════════════════════════════
+       FONTS  –  Unbounded (display) · IBM Plex Sans (body) · IBM Plex Mono (data)
+       ═══════════════════════════════════════════════ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;900&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+  /* ════════════════════════════════════════════════
+     DESIGN TOKENS — dark / light
+     ════════════════════════════════════════════════ */
+  :root {
+    --bg:           #06080F;
+    --bg2:          #0B0F1D;
+    --card:         #0F1428;
+    --card-hover:   #141930;
+    --border:       rgba(255,255,255,0.07);
+    --border-hi:    rgba(255,255,255,0.14);
+    --accent:       #7C6BFF;
+    --accent-dim:   rgba(124,107,255,0.18);
+    --cyan:         #00CFFF;
+    --cyan-dim:     rgba(0,207,255,0.15);
+    --lime:         #AAFF3E;
+    --lime-dim:     rgba(170,255,62,0.15);
+    --orange:       #FF6B30;
+    --orange-dim:   rgba(255,107,48,0.15);
+    --rose:         #FF4D6D;
+    --gold:         #FFD166;
+    --success:      #10D27B;
+    --txt:          #E8EDF5;
+    --txt2:         #7A8599;
+    --txt3:         #3D4760;
+    --sidebar-w:    248px;
+    --topbar-h:     56px;
+    --radius-card:  14px;
+    --radius-sm:    8px;
+    --shadow:       0 4px 24px rgba(0,0,0,0.5);
+  }
+  [data-theme="light"] {
+    --bg:           #EFF1F8;
+    --bg2:          #E3E6F0;
+    --card:         #FFFFFF;
+    --card-hover:   #F7F8FD;
+    --border:       rgba(0,0,0,0.07);
+    --border-hi:    rgba(0,0,0,0.14);
+    --txt:          #0D1121;
+    --txt2:         #5A6380;
+    --txt3:         #9BA3BA;
+    --shadow:       0 4px 24px rgba(0,0,0,0.1);
+  }
+
+  /* ════════════════════════════════════════════════
+     RESET / BASE
+     ════════════════════════════════════════════════ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 15px; }
+  body {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    line-height: 1.5;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 99px; }
+  button { cursor: pointer; font-family: inherit; }
+  input, textarea, select { font-family: inherit; }
+  a { text-decoration: none; cursor: pointer; }
+
+  /* ════════════════════════════════════════════════
+     APP SHELL
+     ════════════════════════════════════════════════ */
+  #app { display: flex; min-height: 100dvh; }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    z-index: 200;
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 199;
+    backdrop-filter: blur(2px);
+  }
+
+  .sidebar-logo {
+    padding: 20px 20px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--accent), #5244CC);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .logo-text { font-family: 'Unbounded', sans-serif; font-size: 11.5px; font-weight: 700; line-height: 1.2; }
+  .logo-sub  { font-size: 10px; color: var(--txt2); font-weight: 400; letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; }
+
+  .sidebar-section { padding: 10px 12px 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--txt3); }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    margin: 1px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--txt2);
+    transition: all .18s;
+    position: relative;
+  }
+  .nav-item:hover { background: var(--border); color: var(--txt); }
+  .nav-item.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 3px 3px 0;
+    margin-left: -10px;
+  }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+
+  .sidebar-footer { margin-top: auto; padding: 12px 16px 16px; }
+
+  /* streak pills in sidebar */
+  .streak-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px; font-weight: 600;
+  }
+
+  /* ── Theme toggle ── */
+  .theme-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    margin: 0 10px 6px;
+    background: var(--border);
+    font-size: 13px; color: var(--txt2);
+  }
+  .toggle-wrap {
+    width: 38px; height: 22px;
+    background: var(--border-hi);
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+  .toggle-wrap.on { background: var(--accent); }
+  .toggle-wrap::after {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: left .2s;
+  }
+  .toggle-wrap.on::after { left: 19px; }
+
+  /* export buttons */
+  .export-row { display: flex; gap: 6px; padding: 0 10px 4px; }
+  .btn-export {
+    flex: 1;
+    background: var(--border);
+    border: 1px solid var(--border-hi);
+    color: var(--txt2);
+    padding: 7px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: .04em;
+    transition: all .18s;
+  }
+  .btn-export:hover { background: var(--border-hi); color: var(--txt); }
+
+  /* ── Top bar ── */
+  #topbar {
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-w);
+    right: 0;
+    height: var(--topbar-h);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    gap: 14px;
+    z-index: 100;
+    transition: left .28s cubic-bezier(.4,0,.2,1);
+  }
+  #menu-btn {
+    display: none;
+    background: var(--border);
+    border: none;
+    width: 34px; height: 34px;
+    border-radius: var(--radius-sm);
+    align-items: center; justify-content: center;
+    font-size: 16px;
+    color: var(--txt);
+  }
+  #breadcrumb { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--txt3); flex: 1; }
+  #topbar-score { display: flex; align-items: center; gap: 8px; }
+
+  /* ── Main content ── */
+  #main {
+    margin-left: var(--sidebar-w);
+    margin-top: var(--topbar-h);
+    flex: 1;
+    min-width: 0;
+    transition: margin-left .28s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ════════════════════════════════════════════════
+     VIEWS
+     ════════════════════════════════════════════════ */
+  .view { display: none; padding: 28px; }
+  .view.active { display: block; }
+
+  .view-heading {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 19px; font-weight: 700;
+    letter-spacing: -.02em;
+    margin-bottom: 4px;
+  }
+  .view-sub { font-size: 13px; color: var(--txt2); margin-bottom: 24px; }
+
+  /* ════════════════════════════════════════════════
+     CARDS
+     ════════════════════════════════════════════════ */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 22px;
+  }
+  .card-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--txt2);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* metric cards row */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .metric-card:hover { transform: translateY(-2px); border-color: var(--border-hi); }
+  .metric-card-glow {
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    filter: blur(28px);
+    opacity: .35;
+    pointer-events: none;
+  }
+  .metric-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--txt2); }
+  .metric-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px; font-weight: 600;
+    line-height: 1.1;
+    margin: 7px 0 4px;
+  }
+  .metric-sub { font-size: 11.5px; color: var(--txt2); }
+
+  /* ════════════════════════════════════════════════
+     FORM ELEMENTS
+     ════════════════════════════════════════════════ */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: var(--txt2);
+    margin-bottom: 6px;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    color: var(--txt);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .form-input::placeholder { color: var(--txt3); }
+  textarea.form-input { resize: vertical; min-height: 76px; font-family: 'IBM Plex Sans', sans-serif; }
+
+  /* number + range combo */
+  .num-range-wrap { display: flex; align-items: center; gap: 10px; }
+  .num-input-sm {
+    width: 72px;
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    color: var(--txt);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .18s;
+    text-align: center;
+  }
+  .num-input-sm:focus { border-color: var(--accent); }
+
+  /* range slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border-hi);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 6px var(--accent-dim);
+    transition: transform .15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+  .range-display {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px; font-weight: 600;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  /* activity checkboxes */
+  .activities-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .act-check {
+    display: flex; align-items: center; gap: 9px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all .18s;
+    user-select: none;
+    font-size: 13px;
+    color: var(--txt2);
+  }
+  .act-check:hover { border-color: var(--accent); color: var(--txt); background: var(--card); }
+  .act-check.checked {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--txt);
+  }
+  .check-box {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 2px solid var(--border-hi);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: transparent;
+    transition: all .18s;
+    flex-shrink: 0;
+  }
+  .act-check.checked .check-box {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .act-icon { font-size: 15px; }
+
+  /* buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px; font-weight: 600;
+    border: none;
+    transition: all .18s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent) 0%, #5244CC 100%);
+    color: #fff;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(124,107,255,.4); }
+  .btn-secondary {
+    background: var(--border);
+    border: 1px solid var(--border-hi);
+    color: var(--txt2);
+  }
+  .btn-secondary:hover { background: var(--border-hi); color: var(--txt); }
+  .btn-danger {
+    background: rgba(255,77,109,.12);
+    color: var(--rose);
+    border: 1px solid rgba(255,77,109,.2);
+  }
+  .btn-danger:hover { background: rgba(255,77,109,.22); }
+
+  /* ════════════════════════════════════════════════
+     PROGRESS BAR
+     ════════════════════════════════════════════════ */
+  .prog-bar-wrap { height: 5px; background: var(--border-hi); border-radius: 3px; overflow: hidden; }
+  .prog-bar-fill { height: 100%; border-radius: 3px; transition: width .7s cubic-bezier(.4,0,.2,1); }
+
+  /* ════════════════════════════════════════════════
+     SCORE RING
+     ════════════════════════════════════════════════ */
+  .score-ring-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .score-center {
+    position: absolute;
+    text-align: center;
+    pointer-events: none;
+  }
+  .score-big {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px; font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: block; line-height: 1;
+  }
+  .score-of { font-size: 10px; color: var(--txt3); margin-top: 1px; }
+
+  /* ════════════════════════════════════════════════
+     HISTORY
+     ════════════════════════════════════════════════ */
+  .history-entry {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    cursor: pointer;
+    transition: all .18s;
+  }
+  .history-entry:hover { border-color: var(--border-hi); background: var(--card-hover); }
+  .history-date-box {
+    text-align: center;
+    min-width: 48px;
+    flex-shrink: 0;
+  }
+  .history-day-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px; font-weight: 600;
+    line-height: 1;
+    color: var(--txt);
+  }
+  .history-day-name { font-size: 9.5px; text-transform: uppercase; color: var(--txt3); letter-spacing: .08em; margin-top: 2px; }
+  .history-month { font-size: 9.5px; color: var(--txt3); margin-top: 1px; }
+  .history-body { flex: 1; min-width: 0; }
+  .history-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 5px; }
+  .history-stat { font-size: 12px; color: var(--txt2); }
+  .history-acts { font-size: 14px; line-height: 1; }
+  .history-note { font-size: 11.5px; color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; margin-top: 3px; }
+  .history-score-box { text-align: right; flex-shrink: 0; }
+  .history-score-num { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; }
+
+  /* ════════════════════════════════════════════════
+     HEATMAP
+     ════════════════════════════════════════════════ */
+  .heatmap-outer { overflow-x: auto; padding-bottom: 6px; }
+  .heatmap-grid { display: flex; gap: 3px; align-items: flex-start; width: max-content; }
+  .heatmap-month-labels { display: flex; gap: 3px; margin-bottom: 4px; width: max-content; padding-left: 24px; }
+  .heatmap-month-lbl { font-size: 9.5px; color: var(--txt3); min-width: 15px; white-space: nowrap; }
+  .heatmap-day-labels {
+    display: flex; flex-direction: column;
+    gap: 3px; padding-top: 0; margin-right: 4px;
+    font-size: 9px; color: var(--txt3);
+  }
+  .heatmap-day-lbl { height: 13px; line-height: 13px; text-align: right; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 3px; }
+  .heatmap-cell {
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    background: var(--border);
+    transition: transform .12s;
+    position: relative;
+    cursor: default;
+  }
+  .heatmap-cell:hover { transform: scale(1.35); z-index: 10; }
+  .heatmap-legend { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 10px; color: var(--txt3); }
+  .heatmap-legend-cells { display: flex; gap: 3px; }
+  .heatmap-legend-cell { width: 13px; height: 13px; border-radius: 3px; }
+
+  /* ════════════════════════════════════════════════
+     GOALS VIEW
+     ════════════════════════════════════════════════ */
+  .goal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .goal-row:last-child { border-bottom: none; }
+  .goal-label { font-size: 13.5px; color: var(--txt); }
+  .goal-sub { font-size: 11.5px; color: var(--txt2); margin-top: 2px; }
+  .goal-input-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  /* ════════════════════════════════════════════════
+     CHART CONTAINERS
+     ════════════════════════════════════════════════ */
+  .chart-box { position: relative; }
+
+  /* ════════════════════════════════════════════════
+     QUOTE CARD
+     ════════════════════════════════════════════════ */
+  .quote-card {
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    background: linear-gradient(90deg, var(--accent-dim), transparent 80%);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--txt2);
+    margin-bottom: 24px;
+  }
+  .quote-author { margin-top: 5px; font-style: normal; font-size: 11.5px; color: var(--txt3); font-weight: 600; }
+
+  /* ════════════════════════════════════════════════
+     NOTIFICATION TOAST
+     ════════════════════════════════════════════════ */
+  #toast {
+    position: fixed;
+    top: 68px; right: 20px;
+    z-index: 9999;
+    transform: translateX(140%);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  #toast.show { transform: translateX(0); }
+  .toast-inner {
+    background: var(--card);
+    border: 1px solid var(--border-hi);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: var(--shadow);
+    min-width: 200px;
+    font-size: 13.5px;
+  }
+  .toast-icon { font-size: 16px; flex-shrink: 0; }
+
+  /* ════════════════════════════════════════════════
+     EMPTY STATE
+     ════════════════════════════════════════════════ */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--txt3);
+  }
+  .empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state-title { font-size: 15px; font-weight: 600; color: var(--txt2); margin-bottom: 6px; }
+  .empty-state-sub { font-size: 13px; }
+
+  /* ════════════════════════════════════════════════
+     BADGE
+     ════════════════════════════════════════════════ */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px; font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ════════════════════════════════════════════════
+     ANALYTICS GRID
+     ════════════════════════════════════════════════ */
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .analytics-grid .span2 { grid-column: span 2; }
+
+  /* ════════════════════════════════════════════════
+     TODAY GRID
+     ════════════════════════════════════════════════ */
+  .today-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+    align-items: start;
+  }
+  .today-right { display: flex; flex-direction: column; gap: 14px; }
+
+  /* ════════════════════════════════════════════════
+     ANIMATIONS
+     ════════════════════════════════════════════════ */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes scaleIn { from { opacity:0; transform:scale(.93); } to { opacity:1; transform:scale(1); } }
+  .anim-fade-up  { animation: fadeUp .38s ease forwards; }
+  .anim-delay-1  { animation: fadeUp .38s ease .08s forwards; opacity:0; }
+  .anim-delay-2  { animation: fadeUp .38s ease .16s forwards; opacity:0; }
+  .anim-delay-3  { animation: fadeUp .38s ease .24s forwards; opacity:0; }
+  .anim-delay-4  { animation: fadeUp .38s ease .32s forwards; opacity:0; }
+
+  /* ════════════════════════════════════════════════
+     RESPONSIVE
+     ════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    .analytics-grid { grid-template-columns: 1fr; }
+    .analytics-grid .span2 { grid-column: span 1; }
+    .today-grid { grid-template-columns: 1fr; }
+    .today-right { order: -1; }
+  }
+  @media (max-width: 768px) {
+    :root { --sidebar-w: 0px; }
+    #sidebar { transform: translateX(-248px); --sidebar-w: 248px; }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar-overlay.show { display: block; }
+    #topbar { left: 0; }
+    #main  { margin-left: 0; }
+    #menu-btn { display: inline-flex; }
+    .view { padding: 16px; }
+    .activities-grid { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .metrics-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .history-note { display: none; }
+  }
+
+  /* Search / filter bar */
+  .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .filter-bar .form-input { max-width: 240px; }
+  .filter-bar select.form-input { max-width: 160px; }
+
+  /* Two-col layout helper */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* Goals progress item */
+  .goal-prog-item { margin-bottom: 18px; }
+  .goal-prog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .goal-prog-label { font-size: 13px; color: var(--txt2); }
+  .goal-prog-vals { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+
+  /* Misc utility */
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .txt2 { color: var(--txt2); }
+  .txt3 { color: var(--txt3); }
+  .fs11 { font-size: 11px; }
+  .fs12 { font-size: 12px; }
+  .fs13 { font-size: 13px; }
+  .fw6  { font-weight: 600; }
+  .mt4  { margin-top: 4px; }
+  .mt8  { margin-top: 8px; }
+  .mt12 { margin-top: 12px; }
+  .mt16 { margin-top: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     SIDEBAR
+     ══════════════════════════════════════════════════ -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<aside id="sidebar">
+  <!-- Logo -->
+  <div class="sidebar-logo">
+    <div class="logo-icon">📈</div>
+    <div>
+      <div class="logo-text">Progress</div>
+      <div class="logo-sub">Daily Tracker</div>
+    </div>
+  </div>
+
+  <!-- Date + streaks -->
+  <div style="padding:12px 20px 8px;">
+    <div id="sb-date" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--txt2);margin-bottom:8px;"></div>
+    <div id="sb-streaks" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <!-- Nav -->
+  <div class="sidebar-section" style="margin-top:4px;">Menu</div>
+  <nav>
+    <a class="nav-item active" id="nav-today"     onclick="navigate('today')">     <span class="nav-icon">🏠</span> Today     </a>
+    <a class="nav-item"        id="nav-history"   onclick="navigate('history')">   <span class="nav-icon">📅</span> History   </a>
+    <a class="nav-item"        id="nav-analytics" onclick="navigate('analytics')"> <span class="nav-icon">📊</span> Analytics </a>
+    <a class="nav-item"        id="nav-goals"     onclick="navigate('goals')">     <span class="nav-icon">🎯</span> Goals     </a>
+  </nav>
+
+  <div class="sidebar-divider" style="margin-top:10px;"></div>
+  <div class="sidebar-section">Settings</div>
+
+  <!-- Theme -->
+  <div class="theme-row">
+    <span>Dark Mode</span>
+    <div class="toggle-wrap on" id="theme-toggle" onclick="toggleTheme()"></div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-row">
+    <button class="btn-export" onclick="exportData('csv')">⬇ CSV</button>
+    <button class="btn-export" onclick="exportData('json')">⬇ JSON</button>
+  </div>
+
+  <div class="sidebar-footer"></div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════
+     TOP BAR
+     ══════════════════════════════════════════════════ -->
+<div id="topbar">
+  <button id="menu-btn" onclick="toggleSidebar()">☰</button>
+  <span id="breadcrumb">Dashboard · Today</span>
+  <div id="topbar-score"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN
+     ══════════════════════════════════════════════════ -->
+<main id="main">
+
+  <!-- ════════════ TODAY ════════════ -->
+  <section id="view-today" class="view active">
+
+    <!-- Quote -->
+    <div id="quote-area"></div>
+
+    <!-- Metric cards -->
+    <div class="metrics-grid" id="metrics-grid"></div>
+
+    <!-- Two-column layout -->
+    <div class="today-grid">
+
+      <!-- LEFT: Entry form -->
+      <div class="card anim-delay-2">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <div class="card-title" style="margin-bottom:0;">Log Today's Progress</div>
+          <div id="form-date-lbl" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--txt3);"></div>
+        </div>
+
+        <form id="entry-form" onsubmit="handleSaveEntry(event)">
+
+          <!-- Date -->
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="f-date" class="form-input" />
+          </div>
+
+          <!-- Study Hours -->
+          <div class="form-group">
+            <label class="form-label">Study Hours <span style="text-transform:none;font-weight:400;color:var(--txt3);">(0–12)</span></label>
+            <div class="num-range-wrap">
+              <input type="number" id="f-study" class="num-input-sm" min="0" max="12" step="0.5" value="0" oninput="onNumInput('study',this.value)" />
+              <input type="range"  id="r-study" min="0" max="12" step="0.5" value="0" oninput="onRangeInput('study',this.value)" style="accent-color:var(--accent);" />
+              <span class="range-display" id="d-study" style="color:var(--accent);">0h</span>
+            </div>
+          </div>
+
+          <!-- Self-Improvement % -->
+          <div class="form-group">
+            <label class="form-label">Self-Improvement % <span style="text-transform:none;font-weight:400;color:var(--txt3);">(0–100)</span></label>
+            <div class="num-range-wrap">
+              <input type="number" id="f-improve" class="num-input-sm" min="0" max="100" step="1" value="0" oninput="onNumInput('improve',this.value)" />
+              <input type="range"  id="r-improve" min="0" max="100" step="1" value="0" oninput="onRangeInput('improve',this.value)" style="accent-color:var(--cyan);" />
+              <span class="range-display" id="d-improve" style="color:var(--cyan);">0%</span>
+            </div>
+          </div>
+
+          <!-- Mock Test Score -->
+          <div class="form-group">
+            <label class="form-label">Mock Test Score <span style="text-transform:none;font-weight:400;color:var(--txt3);">(0–200)</span></label>
+            <div class="num-range-wrap">
+              <input type="number" id="f-mock" class="num-input-sm" min="0" max="200" step="1" value="0" oninput="onNumInput('mock',this.value)" />
+              <input type="range"  id="r-mock" min="0" max="200" step="1" value="0" oninput="onRangeInput('mock',this.value)" style="accent-color:var(--lime);" />
+              <span class="range-display" id="d-mock" style="color:var(--lime);">0</span>
+            </div>
+          </div>
+
+          <!-- Activities -->
+          <div class="form-group">
+            <label class="form-label">Activities Completed Today</label>
+            <div class="activities-grid" id="activities-grid"></div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label">Notes / Reflection <span style="text-transform:none;font-weight:400;color:var(--txt3);">(optional)</span></label>
+            <textarea id="f-notes" class="form-input" placeholder="What went well? What will you improve tomorrow?"></textarea>
+          </div>
+
+          <div style="display:flex;gap:9px;">
+            <button type="submit" class="btn btn-primary" style="flex:1;">✓ Save Entry</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- RIGHT column -->
+      <div class="today-right">
+
+        <!-- Score ring card -->
+        <div class="card anim-delay-1">
+          <div class="card-title">Today's Progress Score</div>
+          <div style="display:flex;align-items:center;gap:20px;">
+            <div class="score-ring-wrap">
+              <canvas id="score-canvas" width="110" height="110"></canvas>
+              <div class="score-center">
+                <span class="score-big" id="score-num">—</span>
+                <div class="score-of">/ 100</div>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <div id="score-grade" style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px;">—</div>
+              <div id="score-msg" style="font-size:12px;color:var(--txt2);line-height:1.5;">Log your progress to see your score.</div>
+              <div style="margin-top:10px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--txt3);margin-bottom:4px;">
+                  <span>Score Breakdown</span>
+                </div>
+                <div id="score-breakdown" style="display:flex;flex-direction:column;gap:5px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity status -->
+        <div class="card anim-delay-2">
+          <div class="card-title">Activity Status</div>
+          <div id="act-status-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
+        <!-- Streaks -->
+        <div class="card anim-delay-3">
+          <div class="card-title">🔥 Streaks</div>
+          <div id="streaks-display"></div>
+        </div>
+
+      </div><!-- /today-right -->
+    </div><!-- /today-grid -->
+  </section>
+
+  <!-- ════════════ HISTORY ════════════ -->
+  <section id="view-history" class="view">
+    <div class="view-heading">History</div>
+    <div class="view-sub">Browse and edit all logged entries.</div>
+
+    <div class="filter-bar">
+      <input type="text" id="hist-search" class="form-input" placeholder="🔍  Search by date or notes…" oninput="renderHistory()" />
+      <select id="hist-sort" class="form-input" onchange="renderHistory()">
+        <option value="desc">Newest First</option>
+        <option value="asc">Oldest First</option>
+      </select>
+      <span id="hist-count" style="align-self:center;font-size:12px;color:var(--txt3);"></span>
+    </div>
+
+    <div id="history-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </section>
+
+  <!-- ════════════ ANALYTICS ════════════ -->
+  <section id="view-analytics" class="view">
+    <div class="view-heading">Analytics</div>
+    <div class="view-sub">Visualise patterns across all your tracked days.</div>
+
+    <div class="analytics-grid">
+
+      <!-- Study Hours Trend -->
+      <div class="card">
+        <div class="card-title">Study Hours Trend — Last 30 Days</div>
+        <div class="chart-box" style="height:210px;">
+          <canvas id="chart-study"></canvas>
+        </div>
+      </div>
+
+      <!-- Self-Improvement Trend -->
+      <div class="card">
+        <div class="card-title">Self-Improvement % Trend — Last 30 Days</div>
+        <div class="chart-box" style="height:210px;">
+          <canvas id="chart-improve"></canvas>
+        </div>
+      </div>
+
+      <!-- Mock Score Trend -->
+      <div class="card">
+        <div class="card-title">Mock Test Score Trend + Average</div>
+        <div class="chart-box" style="height:210px;">
+          <canvas id="chart-mock"></canvas>
+        </div>
+      </div>
+
+      <!-- Activity Radar -->
+      <div class="card">
+        <div class="card-title">Activity Completion Rate</div>
+        <div class="chart-box" style="height:210px;">
+          <canvas id="chart-radar"></canvas>
+        </div>
+      </div>
+
+      <!-- Weekly Summary — full width -->
+      <div class="card span2">
+        <div class="card-title">Weekly Summary — Avg Study Hours vs Improvement %</div>
+        <div class="chart-box" style="height:220px;">
+          <canvas id="chart-weekly"></canvas>
+        </div>
+      </div>
+
+      <!-- Heatmap — full width -->
+      <div class="card span2">
+        <div class="card-title">Activity Heatmap — Last 26 Weeks</div>
+        <div class="heatmap-outer" id="heatmap-container"></div>
+        <div class="heatmap-legend">
+          <span>Less</span>
+          <div class="heatmap-legend-cells" id="heatmap-legend"></div>
+          <span>More</span>
+          <span style="margin-left:8px;color:var(--txt3);">(colour = activities completed)</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════ GOALS ════════════ -->
+  <section id="view-goals" class="view">
+    <div class="view-heading">Goals</div>
+    <div class="view-sub">Set daily targets and track weekly progress toward them.</div>
+
+    <div class="grid-2" style="gap:16px;">
+
+      <!-- Goal settings card -->
+      <div class="card">
+        <div class="card-title">Daily Targets</div>
+
+        <div class="goal-row">
+          <div>
+            <div class="goal-label">📚 Study Hours / day</div>
+            <div class="goal-sub">Target hours of focused study</div>
+          </div>
+          <div class="goal-input-wrap">
+            <input type="number" id="g-study" class="num-input-sm" min="0" max="12" step="0.5" value="6" />
+            <span class="txt3 fs12">h</span>
+          </div>
+        </div>
+
+        <div class="goal-row">
+          <div>
+            <div class="goal-label">📈 Self-Improvement %</div>
+            <div class="goal-sub">Minimum daily growth score</div>
+          </div>
+          <div class="goal-input-wrap">
+            <input type="number" id="g-improve" class="num-input-sm" min="0" max="100" step="5" value="75" />
+            <span class="txt3 fs12">%</span>
+          </div>
+        </div>
+
+        <div class="goal-row">
+          <div>
+            <div class="goal-label">📝 Mock Test Score</div>
+            <div class="goal-sub">Target score (out of 200)</div>
+          </div>
+          <div class="goal-input-wrap">
+            <input type="number" id="g-mock" class="num-input-sm" min="0" max="200" step="5" value="150" />
+          </div>
+        </div>
+
+        <div class="goal-row">
+          <div>
+            <div class="goal-label">⚡ Activities / day</div>
+            <div class="goal-sub">Minimum activities to complete</div>
+          </div>
+          <div class="goal-input-wrap">
+            <input type="number" id="g-acts" class="num-input-sm" min="0" max="6" step="1" value="4" />
+            <span class="txt3 fs12">/ 6</span>
+          </div>
+        </div>
+
+        <div class="goal-row" style="border-bottom:none;padding-bottom:0;">
+          <div>
+            <div class="goal-label">🎯 Study Streak Goal</div>
+            <div class="goal-sub">Target consecutive study days</div>
+          </div>
+          <div class="goal-input-wrap">
+            <input type="number" id="g-streak" class="num-input-sm" min="1" max="365" step="1" value="30" />
+            <span class="txt3 fs12">days</span>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" style="width:100%;" onclick="saveGoals()">💾 Save Goals</button>
+        </div>
+      </div>
+
+      <!-- Weekly progress card -->
+      <div class="card">
+        <div class="card-title">This Week vs Your Goals</div>
+        <div id="goal-progress-list"></div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;">Days Logged — Last 7 Days</div>
+          <div id="week-dots" style="display:flex;gap:6px;"></div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:6px;">All-Time Stats</div>
+          <div id="alltime-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main><!-- /main -->
+
+<!-- Toast notification -->
+<div id="toast">
+  <div class="toast-inner">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Saved!</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ══════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════
+   CONSTANTS & CONFIG
+   ══════════════════════════════════════════ */
+const ACTIVITIES = [
+  { key:'workout',         label:'Workout',       icon:'💪' },
+  { key:'walking',         label:'Walking',       icon:'🚶' },
+  { key:'calculation',     label:'Calculation',   icon:'🧮' },
+  { key:'reading',         label:'Reading',       icon:'📚' },
+  { key:'journaling',      label:'Journaling',    icon:'✍️' },
+  { key:'contentCreation', label:'Content',       icon:'🎨' },
+];
+
+// Score weights — must sum to 100
+const WEIGHTS = { study: 30, improve: 30, mock: 20, acts: 20 };
+
+const QUOTES = [
+  { text:'Small daily improvements lead to staggering long-term results.', by:'Robin Sharma' },
+  { text:'We are what we repeatedly do. Excellence, then, is not an act, but a habit.', by:'Aristotle' },
+  { text:'Discipline is choosing between what you want now and what you want most.', by:'Abraham Lincoln' },
+  { text:'The future belongs to those who prepare for it today.', by:'Malcolm X' },
+  { text:'Your only limit is your mind.', by:'Unknown' },
+  { text:'Success is the sum of small efforts, repeated day in and day out.', by:'Robert Collier' },
+  { text:'Focus on progress, not perfection.', by:'Unknown' },
+  { text:'The secret of getting ahead is getting started.', by:'Mark Twain' },
+  { text:"Don't watch the clock; do what it does. Keep going.", by:'Sam Levenson' },
+  { text:'Motivation is what gets you started. Habit is what keeps you going.', by:'Jim Ryun' },
+  { text:'You don\'t have to be great to start, but you have to start to be great.', by:'Zig Ziglar' },
+  { text:'Push yourself, because no one else is going to do it for you.', by:'Unknown' },
+  { text:'Dreams don\'t work unless you do.', by:'John C. Maxwell' },
+];
+
+const SCORE_GRADES = [
+  { min:90, label:'Outstanding 🏆', color:'#AAFF3E' },
+  { min:75, label:'Excellent ⭐',    color:'#00CFFF' },
+  { min:55, label:'Good Work 💪',    color:'#7C6BFF' },
+  { min:35, label:'Decent Start 🌱', color:'#FFD166' },
+  { min:0,  label:'Keep Going 🚀',   color:'#FF6B30' },
+];
+
+// heatmap accent intensities
+const HEAT_COLORS_DARK  = ['rgba(255,255,255,0.06)','rgba(124,107,255,0.25)','rgba(124,107,255,0.45)','rgba(124,107,255,0.7)','#7C6BFF'];
+const HEAT_COLORS_LIGHT = ['rgba(0,0,0,0.07)','rgba(124,107,255,0.25)','rgba(124,107,255,0.5)','rgba(124,107,255,0.75)','#7C6BFF'];
+
+/* ══════════════════════════════════════════
+   STORAGE LAYER
+   ══════════════════════════════════════════ */
+const DB = {
+  KEY_ENTRIES: 'pt_entries',
+  KEY_GOALS:   'pt_goals',
+  KEY_THEME:   'pt_theme',
+
+  _read(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+    catch { return fallback; }
+  },
+  _write(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
+
+  entries() { return this._read(this.KEY_ENTRIES, {}); },
+  entry(date) { return this.entries()[date] ?? null; },
+  saveEntry(e) { const all = this.entries(); all[e.date] = e; this._write(this.KEY_ENTRIES, all); },
+  deleteEntry(date) { const all = this.entries(); delete all[date]; this._write(this.KEY_ENTRIES, all); },
+  sortedEntries(asc = false) {
+    return Object.values(this.entries())
+      .filter(e => !e._empty)
+      .sort((a,b) => asc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  },
+
+  goals() {
+    return this._read(this.KEY_GOALS, { study:6, improve:75, mock:150, acts:4, streak:30 });
+  },
+  saveGoals(g) { this._write(this.KEY_GOALS, g); },
+
+  theme() { return this._read(this.KEY_THEME, 'dark'); },
+  setTheme(t) { this._write(this.KEY_THEME, t); },
+
+  /* Last N days — fills missing dates with null placeholder */
+  lastNDays(n) {
+    const all = this.entries();
+    const out = [];
+    for (let i = n-1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const ds = fmtDate(d);
+      out.push(all[ds] ?? { date: ds, _empty: true });
+    }
+    return out;
+  },
+};
+
+/* ══════════════════════════════════════════
+   UTILITIES
+   ══════════════════════════════════════════ */
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayStr() { return fmtDate(new Date()); }
+
+function displayDate(ds) {
+  if (!ds) return '';
+  const [y,m,d] = ds.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d} ${months[+m-1]} ${y}`;
+}
+function dayName(ds) {
+  return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(ds+'T00:00:00').getDay()];
+}
+function shortMonthName(m) {
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m];
+}
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function isDarkMode() {
+  return document.documentElement.getAttribute('data-theme') !== 'light';
+}
+
+/* ══════════════════════════════════════════
+   SCORE CALCULATIONS
+   ══════════════════════════════════════════ */
+function calcScore(entry) {
+  if (!entry || entry._empty) return 0;
+  const g = DB.goals();
+
+  // Each component scaled to its weight
+  const studyScore   = Math.min(WEIGHTS.study,   (entry.studyHours       / Math.max(g.study,   0.1)) * WEIGHTS.study);
+  const improveScore = (entry.selfImprovePct / 100) * WEIGHTS.improve;
+  const mockScore    = Math.min(WEIGHTS.mock,    (entry.mockScore         / Math.max(g.mock,    1))   * WEIGHTS.mock);
+  const actCount     = ACTIVITIES.filter(a => entry.acts?.[a.key]).length;
+  const actScore     = (actCount / 6) * WEIGHTS.acts;
+
+  return Math.round(studyScore + improveScore + mockScore + actScore);
+}
+
+function scoreGrade(s) {
+  return SCORE_GRADES.find(g => s >= g.min) ?? SCORE_GRADES[SCORE_GRADES.length-1];
+}
+
+function scoreBreakdown(entry) {
+  if (!entry || entry._empty) return [];
+  const g = DB.goals();
+  const studyS   = Math.min(WEIGHTS.study,   (entry.studyHours     / Math.max(g.study,0.1)) * WEIGHTS.study);
+  const improveS = (entry.selfImprovePct/100) * WEIGHTS.improve;
+  const mockS    = Math.min(WEIGHTS.mock,    (entry.mockScore       / Math.max(g.mock,1))   * WEIGHTS.mock);
+  const actCount = ACTIVITIES.filter(a => entry.acts?.[a.key]).length;
+  const actS     = (actCount/6) * WEIGHTS.acts;
+  return [
+    { label:'Study',       val: Math.round(studyS),   max: WEIGHTS.study,   color:'var(--accent)' },
+    { label:'Improvement', val: Math.round(improveS), max: WEIGHTS.improve, color:'var(--cyan)'   },
+    { label:'Mock Test',   val: Math.round(mockS),    max: WEIGHTS.mock,    color:'var(--lime)'   },
+    { label:'Activities',  val: Math.round(actS),     max: WEIGHTS.acts,    color:'var(--orange)' },
+  ];
+}
+
+/* ══════════════════════════════════════════
+   STREAK CALCULATION
+   ══════════════════════════════════════════ */
+function calcStreak(predicate) {
+  const all = DB.entries();
+  let streak = 0;
+  const d = new Date();
+  // If today not logged / doesn't satisfy, start from yesterday
+  if (!all[todayStr()] || !predicate(all[todayStr()])) d.setDate(d.getDate()-1);
+  for (let i = 0; i < 365; i++) {
+    const ds = fmtDate(d);
+    const e = all[ds];
+    if (!e || !predicate(e)) break;
+    streak++;
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+
+function calcStreaks() {
+  const studyStreak = calcStreak(e => (e.studyHours || 0) > 0);
+  const actStreak   = calcStreak(e => ACTIVITIES.filter(a => e.acts?.[a.key]).length >= 3);
+  return { studyStreak, actStreak };
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY COMPLETION RATES (%)
+   ══════════════════════════════════════════ */
+function actCompletionRates() {
+  const entries = DB.sortedEntries();
+  if (!entries.length) return ACTIVITIES.map(() => 0);
+  return ACTIVITIES.map(a => {
+    const done = entries.filter(e => e.acts?.[a.key]).length;
+    return Math.round((done / entries.length) * 100);
+  });
+}
+
+/* ══════════════════════════════════════════
+   CHART HELPERS
+   ══════════════════════════════════════════ */
+const chartInstances = {};
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function chartDefaults() {
+  const dark = isDarkMode();
+  return {
+    text:  dark ? '#7A8599' : '#5A6380',
+    grid:  dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+  };
+}
+
+function baseScaleOpts(opts = {}) {
+  const d = chartDefaults();
+  return {
+    ticks: { color: d.text, font: { family:"'IBM Plex Mono', monospace", size:10 }, maxTicksLimit: 8 },
+    grid:  { color: d.grid },
+    ...opts,
+  };
+}
+
+function baseLegendOpts() {
+  const d = chartDefaults();
+  return { labels: { color: d.text, font: { family:"'IBM Plex Sans', sans-serif", size:11 }, boxWidth:12, padding:14 } };
+}
+
+/* ── Study Hours Line Chart ── */
+function buildStudyChart() {
+  destroyChart('study');
+  const ctx = document.getElementById('chart-study');
+  if (!ctx) return;
+  const data30 = DB.lastNDays(30);
+  const labels = data30.map(e => e.date.slice(5));
+  const vals   = data30.map(e => e._empty ? null : (e.studyHours || 0));
+  const goal   = DB.goals().study;
+  chartInstances.study = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label:'Study Hours', data: vals,
+          borderColor:'#7C6BFF', backgroundColor:'rgba(124,107,255,0.12)',
+          fill:true, tension:.4, pointRadius:3, pointHoverRadius:5,
+          pointBackgroundColor:'#7C6BFF', spanGaps:true, borderWidth:2,
+        },
+        {
+          label:`Goal (${goal}h)`, data: data30.map(()=> goal),
+          borderColor:'rgba(255,107,48,0.5)', borderDash:[5,4],
+          pointRadius:0, fill:false, borderWidth:1.5,
+        },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend: baseLegendOpts(), tooltip:{ mode:'index', intersect:false } },
+      scales:{ x: baseScaleOpts(), y: baseScaleOpts({ min:0, suggestedMax:Math.max(goal+2,8) }) },
+    },
+  });
+}
+
+/* ── Self-Improvement Bar+Line ── */
+function buildImproveChart() {
+  destroyChart('improve');
+  const ctx = document.getElementById('chart-improve');
+  if (!ctx) return;
+  const data30 = DB.lastNDays(30);
+  const labels = data30.map(e => e.date.slice(5));
+  const vals   = data30.map(e => e._empty ? null : (e.selfImprovePct || 0));
+  chartInstances.improve = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Improvement %', data:vals, type:'bar',
+          backgroundColor:'rgba(0,207,255,0.25)', borderColor:'#00CFFF',
+          borderWidth:1, borderRadius:4,
+        },
+        {
+          label:'Trend', data:vals, type:'line',
+          borderColor:'#00CFFF', backgroundColor:'transparent',
+          tension:.4, pointRadius:0, borderWidth:2, spanGaps:true,
+        },
+      ],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend: baseLegendOpts(), tooltip:{ mode:'index', intersect:false } },
+      scales:{ x: baseScaleOpts(), y: baseScaleOpts({ min:0, max:100 }) },
+    },
+  });
+}
+
+/* ── Mock Score Line ── */
+function buildMockChart() {
+  destroyChart('mock');
+  const ctx = document.getElementById('chart-mock');
+  if (!ctx) return;
+  const data30 = DB.lastNDays(30);
+  const labels = data30.map(e => e.date.slice(5));
+  const vals   = data30.map(e => e._empty ? null : (e.mockScore || 0));
+  const nonNull = vals.filter(v => v !== null);
+  const avg = nonNull.length ? Math.round(nonNull.reduce((a,b)=>a+b,0)/nonNull.length) : 0;
+  const goal = DB.goals().mock;
+  chartInstances.mock = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Mock Score', data:vals,
+          borderColor:'#AAFF3E', backgroundColor:'rgba(170,255,62,0.1)',
+          fill:true, tension:.4, pointRadius:3, pointHoverRadius:5,
+          pointBackgroundColor:'#AAFF3E', spanGaps:true, borderWidth:2,
+        },
+        {
+          label:`Avg (${avg})`, data:data30.map(()=>avg),
+          borderColor:'rgba(255,209,102,0.7)', borderDash:[5,4],
+          pointRadius:0, fill:false, borderWidth:1.5,
+        },
+        {
+          label:`Goal (${goal})`, data:data30.map(()=>goal),
+          borderColor:'rgba(255,107,48,0.5)', borderDash:[3,5],
+          pointRadius:0, fill:false, borderWidth:1.5,
+        },
+      ],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend: baseLegendOpts(), tooltip:{ mode:'index', intersect:false } },
+      scales:{ x: baseScaleOpts(), y: baseScaleOpts({ min:0, max:210 }) },
+    },
+  });
+}
+
+/* ── Activity Radar ── */
+function buildRadarChart() {
+  destroyChart('radar');
+  const ctx = document.getElementById('chart-radar');
+  if (!ctx) return;
+  const rates = actCompletionRates();
+  const d = chartDefaults();
+  chartInstances.radar = new Chart(ctx, {
+    type:'radar',
+    data:{
+      labels: ACTIVITIES.map(a => a.label),
+      datasets:[{
+        label:'Completion %', data:rates,
+        borderColor:'#7C6BFF', backgroundColor:'rgba(124,107,255,0.2)',
+        pointBackgroundColor:'#7C6BFF', pointRadius:4, borderWidth:2,
+      }],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        r:{
+          min:0, max:100,
+          ticks:{ color:d.text, font:{size:9,family:"'IBM Plex Mono',monospace"}, backdropColor:'transparent', stepSize:25 },
+          grid:{ color:d.grid },
+          pointLabels:{ color:d.text, font:{size:11,family:"'IBM Plex Sans',sans-serif"} },
+          angleLines:{ color:d.grid },
+        },
+      },
+    },
+  });
+}
+
+/* ── Weekly Summary Grouped Bar ── */
+function buildWeeklyChart() {
+  destroyChart('weekly');
+  const ctx = document.getElementById('chart-weekly');
+  if (!ctx) return;
+  const all = DB.entries();
+  const weeks = [];
+  for (let w = 7; w >= 0; w--) {
+    let totalStudy=0, totalImprove=0, count=0;
+    for (let d=0; d<7; d++) {
+      const dt = new Date(); dt.setDate(dt.getDate() - w*7 - d);
+      const e = all[fmtDate(dt)];
+      if (e && !e._empty) { totalStudy += e.studyHours||0; totalImprove += e.selfImprovePct||0; count++; }
+    }
+    weeks.push({
+      label: w === 0 ? 'This W' : `W-${w}`,
+      study:   count ? +(totalStudy/count).toFixed(1) : 0,
+      improve: count ? Math.round(totalImprove/count) : 0,
+    });
+  }
+  const d = chartDefaults();
+  chartInstances.weekly = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: weeks.map(w=>w.label),
+      datasets:[
+        {
+          label:'Avg Study Hours', data:weeks.map(w=>w.study),
+          backgroundColor:'rgba(124,107,255,0.65)', borderRadius:5, yAxisID:'y',
+        },
+        {
+          label:'Avg Improvement %', data:weeks.map(w=>w.improve),
+          backgroundColor:'rgba(0,207,255,0.45)', borderRadius:5, yAxisID:'y2',
+        },
+      ],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend: baseLegendOpts(), tooltip:{ mode:'index', intersect:false } },
+      scales:{
+        x:  baseScaleOpts(),
+        y:  baseScaleOpts({ position:'left',  title:{ display:true, text:'Hours', color:d.text, font:{size:10} } }),
+        y2: baseScaleOpts({ position:'right', grid:{ display:false }, min:0, max:100,
+              title:{ display:true, text:'%', color:d.text, font:{size:10} } }),
+      },
+    },
+  });
+}
+
+/* ── Score Donut ── */
+function buildScoreDonut(score) {
+  destroyChart('scoreDonut');
+  const ctx = document.getElementById('score-canvas');
+  if (!ctx) return;
+  const dark = isDarkMode();
+  const gradeColor = scoreGrade(score).color;
+  chartInstances.scoreDonut = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      datasets:[{
+        data:[score, 100-score],
+        backgroundColor:[gradeColor, dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'],
+        borderWidth:0,
+        circumference:260,
+        rotation:-130,
+      }],
+    },
+    options:{
+      cutout:'78%',
+      plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
+      animation:{ duration:700, easing:'easeInOutCubic' },
+    },
+  });
+}
+
+/* ── Heatmap (custom HTML/CSS) ── */
+function buildHeatmap() {
+  const container = document.getElementById('heatmap-container');
+  const legendEl  = document.getElementById('heatmap-legend');
+  if (!container) return;
+
+  const all = DB.entries();
+  const dark = isDarkMode();
+  const heatColors = dark ? HEAT_COLORS_DARK : HEAT_COLORS_LIGHT;
+  const WEEKS = 26;
+
+  /* Build start date — nearest Sunday before 26 weeks ago */
+  const start = new Date();
+  start.setDate(start.getDate() - WEEKS*7 + 1);
+  start.setDate(start.getDate() - start.getDay());
+
+  const today = new Date();
+
+  /* Month labels row */
+  let mlHtml = '<div class="heatmap-month-labels">';
+  let lastMonth = -1;
+  for (let w = 0; w < WEEKS; w++) {
+    const wd = new Date(start); wd.setDate(wd.getDate() + w*7);
+    const mo = wd.getMonth();
+    if (mo !== lastMonth) {
+      mlHtml += `<span class="heatmap-month-lbl">${shortMonthName(mo)}</span>`;
+      lastMonth = mo;
+    } else {
+      mlHtml += `<span class="heatmap-month-lbl"></span>`;
+    }
+    if (w < WEEKS-1) mlHtml += `<span style="min-width:3px;display:inline-block;"></span>`;
+  }
+  mlHtml += '</div>';
+
+  /* Day labels column */
+  let dlHtml = '<div class="heatmap-day-labels">';
+  ['','M','','W','','F',''].forEach(l => {
+    dlHtml += `<div class="heatmap-day-lbl">${l}</div>`;
+    dlHtml += `<div style="height:3px;"></div>`;
+  });
+  dlHtml += '</div>';
+
+  /* Week columns */
+  let colsHtml = '';
+  for (let w = 0; w < WEEKS; w++) {
+    colsHtml += '<div class="heatmap-col">';
+    for (let d = 0; d < 7; d++) {
+      const cellDate = new Date(start); cellDate.setDate(cellDate.getDate() + w*7 + d);
+      if (cellDate > today) {
+        colsHtml += `<div style="width:13px;height:13px;"></div>`;
+        if (d < 6) colsHtml += `<div style="height:3px;"></div>`;
+        continue;
+      }
+      const ds = fmtDate(cellDate);
+      const entry = all[ds];
+      let actCount = 0;
+      let score = 0;
+      if (entry && !entry._empty) {
+        actCount = ACTIVITIES.filter(a => entry.acts?.[a.key]).length;
+        score = calcScore(entry);
+      }
+      const colorIdx = actCount === 0 ? 0 : actCount <= 1 ? 1 : actCount <= 3 ? 2 : actCount <= 5 ? 3 : 4;
+      const color = heatColors[colorIdx];
+      const tt = `${displayDate(ds)} — ${actCount}/6 activities${score ? ', score: '+score : ''}`;
+      colsHtml += `<div class="heatmap-cell" style="background:${color};" title="${tt}"></div>`;
+      if (d < 6) colsHtml += `<div style="height:3px;"></div>`;
+    }
+    colsHtml += '</div>';
+    if (w < WEEKS-1) colsHtml += `<div style="width:3px;"></div>`;
+  }
+
+  container.innerHTML = `${mlHtml}<div class="heatmap-grid">${dlHtml}${colsHtml}</div>`;
+
+  /* Legend */
+  if (legendEl) {
+    legendEl.innerHTML = heatColors.map(c => `<div class="heatmap-legend-cell" style="background:${c};"></div>`).join('');
+  }
+}
+
+/* Initialise all analytics charts */
+function initAllCharts() {
+  buildStudyChart();
+  buildImproveChart();
+  buildMockChart();
+  buildRadarChart();
+  buildWeeklyChart();
+  buildHeatmap();
+}
+
+/* ══════════════════════════════════════════
+   FORM STATE
+   ══════════════════════════════════════════ */
+const checkedActs = new Set();
+
+function onRangeInput(type, v) {
+  v = parseFloat(v);
+  const numId = { study:'f-study', improve:'f-improve', mock:'f-mock' }[type];
+  const dispId = { study:'d-study', improve:'d-improve', mock:'d-mock' }[type];
+  const suffix = { study:'h', improve:'%', mock:'' }[type];
+  document.getElementById(numId).value = v;
+  document.getElementById(dispId).textContent = v + suffix;
+  updateLiveScore();
+}
+function onNumInput(type, v) {
+  const limits = { study:[0,12], improve:[0,100], mock:[0,200] };
+  const [lo,hi] = limits[type];
+  v = clamp(parseFloat(v)||0, lo, hi);
+  const rangeId = { study:'r-study', improve:'r-improve', mock:'r-mock' }[type];
+  const dispId  = { study:'d-study', improve:'d-improve', mock:'d-mock'  }[type];
+  const suffix  = { study:'h', improve:'%', mock:'' }[type];
+  document.getElementById(rangeId).value = v;
+  document.getElementById(dispId).textContent = v + suffix;
+  updateLiveScore();
+}
+function toggleAct(key) {
+  const el = document.getElementById(`act-${key}`);
+  if (!el) return;
+  if (checkedActs.has(key)) { checkedActs.delete(key); el.classList.remove('checked'); }
+  else                       { checkedActs.add(key);    el.classList.add('checked'); }
+  renderActStatusList();
+  updateLiveScore();
+}
+
+function formValues() {
+  return {
+    studyHours:     parseFloat(document.getElementById('f-study')?.value)   || 0,
+    selfImprovePct: parseInt(document.getElementById('f-improve')?.value)   || 0,
+    mockScore:      parseInt(document.getElementById('f-mock')?.value)      || 0,
+    notes:          document.getElementById('f-notes')?.value?.trim()       || '',
+    acts:           Object.fromEntries(ACTIVITIES.map(a => [a.key, checkedActs.has(a.key)])),
+  };
+}
+
+function updateLiveScore() {
+  const fv = formValues();
+  const date = document.getElementById('f-date')?.value || todayStr();
+  const entry = { ...fv, date };
+  const score = calcScore(entry);
+  const grade = scoreGrade(score);
+
+  // Number
+  const numEl = document.getElementById('score-num');
+  if (numEl) numEl.textContent = score > 0 ? score : '—';
+
+  // Grade label
+  const gradeEl = document.getElementById('score-grade');
+  if (gradeEl) { gradeEl.textContent = score > 0 ? grade.label : '—'; gradeEl.style.color = grade.color; }
+
+  // Message
+  const msgEl = document.getElementById('score-msg');
+  if (msgEl) msgEl.textContent = score > 0 ? progressMsg(score) : 'Log your progress to see your score.';
+
+  // Breakdown
+  renderScoreBreakdown(score > 0 ? entry : null);
+
+  // Donut
+  buildScoreDonut(score);
+
+  // Topbar badge
+  renderTopbarScore(score, grade);
+}
+
+function progressMsg(s) {
+  if (s >= 90) return "Outstanding day! You're setting a new standard. 🔥";
+  if (s >= 75) return "Excellent work! One more push and you're at peak level.";
+  if (s >= 55) return "Solid effort today! Keep building on this momentum.";
+  if (s >= 35) return "Good start! Identify one area to level up tomorrow.";
+  return "Every journey starts here. Log consistently and the score rises!";
+}
+
+/* ══════════════════════════════════════════
+   RENDER FUNCTIONS
+   ══════════════════════════════════════════ */
+
+/* Metric cards */
+function renderMetricCards() {
+  const container = document.getElementById('metrics-grid');
+  if (!container) return;
+  const sorted = DB.sortedEntries();
+  const { studyStreak, actStreak } = calcStreaks();
+  const totalHours = sorted.reduce((s,e)=>s+(e.studyHours||0),0);
+  const todayEntry = DB.entry(todayStr());
+  const todayScore = todayEntry ? calcScore(todayEntry) : null;
+  const allScores  = sorted.map(calcScore);
+  const avgScore   = allScores.length ? Math.round(allScores.reduce((a,b)=>a+b,0)/allScores.length) : null;
+  const totalDays  = sorted.length;
+
+  const cards = [
+    { label:'Today\'s Score', value: todayScore !== null ? todayScore : '—', sub:'out of 100',        color:'var(--accent)', glow:'#7C6BFF' },
+    { label:'Study Streak 🔥', value: studyStreak,                           sub:'consecutive days', color:'var(--orange)', glow:'#FF6B30' },
+    { label:'Total Study Hrs', value: totalHours.toFixed(1)+'h',             sub:`over ${totalDays} days`, color:'var(--lime)',   glow:'#AAFF3E' },
+    { label:'Avg Score',       value: avgScore !== null ? avgScore : '—',    sub:'all time',         color:'var(--cyan)',   glow:'#00CFFF' },
+  ];
+
+  container.innerHTML = cards.map((c,i) => `
+    <div class="metric-card anim-delay-${i+1}">
+      <div class="metric-card-glow" style="background:${c.glow};"></div>
+      <div class="metric-label">${c.label}</div>
+      <div class="metric-value" style="color:${c.color};">${c.value}</div>
+      <div class="metric-sub">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
+/* Activity grid in form */
+function renderActivityGrid() {
+  const el = document.getElementById('activities-grid');
+  if (!el) return;
+  el.innerHTML = ACTIVITIES.map(a => `
+    <div class="act-check ${checkedActs.has(a.key) ? 'checked' : ''}" id="act-${a.key}" onclick="toggleAct('${a.key}')">
+      <div class="check-box">✓</div>
+      <span class="act-icon">${a.icon}</span>
+      <span>${a.label}</span>
+    </div>
+  `).join('');
+}
+
+/* Activity status list (right panel) */
+function renderActStatusList() {
+  const el = document.getElementById('act-status-list');
+  if (!el) return;
+  el.innerHTML = ACTIVITIES.map(a => {
+    const done = checkedActs.has(a.key);
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:15px;">${a.icon}</span>
+          <span style="font-size:13px;color:${done ? 'var(--txt)' : 'var(--txt2)'};">${a.label}</span>
+        </div>
+        <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+          background:${done ? 'var(--success)' : 'var(--border-hi)'};font-size:10px;color:${done ? '#fff' : 'transparent'};">
+          ${done ? '✓' : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* Score breakdown mini bars */
+function renderScoreBreakdown(entry) {
+  const el = document.getElementById('score-breakdown');
+  if (!el) return;
+  if (!entry) { el.innerHTML = ''; return; }
+  const parts = scoreBreakdown(entry);
+  el.innerHTML = parts.map(p => `
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--txt3);margin-bottom:3px;">
+        <span>${p.label}</span>
+        <span class="mono">${p.val}/${p.max}</span>
+      </div>
+      <div class="prog-bar-wrap">
+        <div class="prog-bar-fill" style="width:${(p.val/p.max*100).toFixed(0)}%;background:${p.color};"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* Streaks panel */
+function renderStreaks() {
+  const el = document.getElementById('streaks-display');
+  if (!el) return;
+  const { studyStreak, actStreak } = calcStreaks();
+  const g = DB.goals();
+
+  function streakRow(label, icon, streak, goal, color) {
+    const pct = Math.min(100, (streak/goal)*100).toFixed(0);
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-size:13px;color:var(--txt2);">${icon} ${label}</span>
+          <span class="mono fw6" style="font-size:14px;color:${streak > 0 ? color : 'var(--txt3)'};">${streak} days</span>
+        </div>
+        <div class="prog-bar-wrap">
+          <div class="prog-bar-fill" style="width:${pct}%;background:${color};"></div>
+        </div>
+        <div class="fs11 txt3 mt4">${streak >= goal ? `🏆 ${goal}-day goal reached!` : `${goal - streak} days to ${goal}-day goal`}</div>
+      </div>
+    `;
+  }
+  el.innerHTML =
+    streakRow('Study Streak',    '📚', studyStreak, g.streak, 'var(--orange)') +
+    streakRow('Activity Streak', '⚡', actStreak,   21,       'var(--lime)');
+}
+
+/* Sidebar streaks pills */
+function renderSbStreaks() {
+  const el = document.getElementById('sb-streaks');
+  if (!el) return;
+  const { studyStreak, actStreak } = calcStreaks();
+  el.innerHTML = `
+    <span class="streak-pill" style="background:var(--orange-dim);color:var(--orange);">🔥 ${studyStreak}d</span>
+    <span class="streak-pill" style="background:var(--lime-dim);color:var(--lime);">⚡ ${actStreak}d</span>
+  `;
+}
+
+/* Quote */
+function renderQuote() {
+  const el = document.getElementById('quote-area');
+  if (!el) return;
+  const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  el.innerHTML = `
+    <div class="quote-card anim-fade-up">
+      "${q.text}"
+      <div class="quote-author">— ${q.by}</div>
+    </div>
+  `;
+}
+
+/* Topbar score badge */
+function renderTopbarScore(score, grade) {
+  const el = document.getElementById('topbar-score');
+  if (!el) return;
+  if (!score) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <span class="badge" style="background:${grade.color}22;color:${grade.color};border:1px solid ${grade.color}44;">
+      Score ${score}
+    </span>
+  `;
+}
+
+/* ── HISTORY ── */
+function renderHistory() {
+  const list   = document.getElementById('history-list');
+  const countEl = document.getElementById('hist-count');
+  if (!list) return;
+
+  const search = document.getElementById('hist-search')?.value?.trim().toLowerCase() || '';
+  const sortAsc = document.getElementById('hist-sort')?.value === 'asc';
+
+  let entries = DB.sortedEntries(!sortAsc);
+  if (search) {
+    entries = entries.filter(e =>
+      e.date.includes(search) || (e.notes||'').toLowerCase().includes(search)
+    );
+  }
+
+  if (countEl) countEl.textContent = `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`;
+
+  if (!entries.length) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-title">${search ? 'No entries match' : 'No entries yet'}</div>
+        <div class="empty-state-sub">${search ? 'Try a different search.' : 'Log your first day from the Today tab!'}</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = entries.map(entry => {
+    const score = calcScore(entry);
+    const grade = scoreGrade(score);
+    const actCount = ACTIVITIES.filter(a => entry.acts?.[a.key]).length;
+    const actIcons = ACTIVITIES.filter(a => entry.acts?.[a.key]).map(a => a.icon).join(' ');
+    return `
+      <div class="history-entry" onclick="loadEntry('${entry.date}')">
+        <div class="history-date-box">
+          <div class="history-day-num">${entry.date.slice(8)}</div>
+          <div class="history-day-name">${dayName(entry.date)}</div>
+          <div class="history-month">${entry.date.slice(0,7)}</div>
+        </div>
+        <div class="history-body">
+          <div class="history-stats">
+            <span class="history-stat">📚 ${entry.studyHours||0}h</span>
+            <span class="history-stat">📈 ${entry.selfImprovePct||0}%</span>
+            <span class="history-stat">📝 ${entry.mockScore||0}</span>
+          </div>
+          <div class="history-acts">${actIcons || '—'} <span class="fs11 txt3">${actCount}/6</span></div>
+          ${entry.notes ? `<div class="history-note">${entry.notes}</div>` : ''}
+        </div>
+        <div class="history-score-box">
+          <div class="history-score-num" style="color:${grade.color};">${score}</div>
+          <div class="fs11 txt3">SCORE</div>
+        </div>
+        <button onclick="event.stopPropagation();deleteEntryUI('${entry.date}')"
+          style="background:none;border:none;font-size:16px;padding:6px 8px;border-radius:6px;color:var(--txt3);opacity:.5;transition:all .2s;"
+          onmouseover="this.style.opacity=1;this.style.color='var(--rose)';"
+          onmouseout="this.style.opacity=.5;this.style.color='var(--txt3)';"
+          title="Delete entry">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+/* ── GOALS ── */
+function renderGoalProgress() {
+  const listEl  = document.getElementById('goal-progress-list');
+  const dotsEl  = document.getElementById('week-dots');
+  const alltime = document.getElementById('alltime-stats');
+  if (!listEl) return;
+
+  const g = DB.goals();
+  const data7 = DB.lastNDays(7);
+  const logged = data7.filter(e => !e._empty);
+  const avg = key => logged.length ? (logged.reduce((s,e)=>s+(e[key]||0),0)/logged.length) : 0;
+  const avgStudy   = +avg('studyHours').toFixed(1);
+  const avgImprove = Math.round(avg('selfImprovePct'));
+  const avgMock    = Math.round(avg('mockScore'));
+  const avgActs    = logged.length
+    ? +(logged.reduce((s,e)=>s+ACTIVITIES.filter(a=>e.acts?.[a.key]).length,0)/logged.length).toFixed(1) : 0;
+
+  function progItem(icon, label, current, target, color, suffix='') {
+    const pct = target > 0 ? Math.min(100, (current/target)*100).toFixed(0) : 0;
+    return `
+      <div class="goal-prog-item">
+        <div class="goal-prog-header">
+          <span class="goal-prog-label">${icon} ${label} <span class="txt3 fs12">(7-day avg)</span></span>
+          <span class="goal-prog-vals" style="color:${color};">${current}${suffix} <span class="txt3">/ ${target}${suffix}</span></span>
+        </div>
+        <div class="prog-bar-wrap">
+          <div class="prog-bar-fill" style="width:${pct}%;background:${color};"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  listEl.innerHTML =
+    progItem('📚','Study Hours',   avgStudy,   g.study,   'var(--accent)', 'h') +
+    progItem('📈','Improvement',   avgImprove, g.improve, 'var(--cyan)',   '%') +
+    progItem('📝','Mock Score',    avgMock,    g.mock,    'var(--lime)')         +
+    progItem('⚡','Activities',    avgActs,    g.acts,    'var(--orange)');
+
+  // Week dots
+  if (dotsEl) {
+    dotsEl.innerHTML = data7.map(e => {
+      const has = !e._empty;
+      return `<div title="${displayDate(e.date)}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+        background:${has ? 'var(--accent-dim)' : 'var(--border)'};border:1px solid ${has ? 'var(--accent)' : 'var(--border-hi)'};
+        font-size:10px;color:${has ? 'var(--accent)' : 'var(--txt3)'};">${e.date.slice(8)}</div>`;
+    }).join('');
+  }
+
+  // All-time stats
+  if (alltime) {
+    const sorted = DB.sortedEntries();
+    const total = sorted.length;
+    const totalH = sorted.reduce((s,e)=>s+(e.studyHours||0),0).toFixed(1);
+    const avgSc  = total ? Math.round(sorted.reduce((s,e)=>s+calcScore(e),0)/total) : 0;
+    const best   = total ? Math.max(...sorted.map(calcScore)) : 0;
+    const { studyStreak } = calcStreaks();
+    const items = [
+      { label:'Days Logged', val: total },
+      { label:'Total Hours', val: totalH+'h' },
+      { label:'Avg Score',   val: avgSc || '—' },
+      { label:'Best Score',  val: best || '—' },
+    ];
+    alltime.innerHTML = items.map(it => `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <div class="fs11 txt3">${it.label}</div>
+        <div class="mono fw6 mt4" style="font-size:16px;">${it.val}</div>
+      </div>
+    `).join('');
+  }
+}
+
+/* ══════════════════════════════════════════
+   FORM SAVE / LOAD / RESET
+   ══════════════════════════════════════════ */
+function handleSaveEntry(evt) {
+  evt.preventDefault();
+  const date = document.getElementById('f-date')?.value || todayStr();
+  const fv = formValues();
+  DB.saveEntry({ date, ...fv, savedAt: new Date().toISOString() });
+  showToast('Entry saved! 🎉', 'success');
+  refreshAll();
+}
+
+function loadEntry(date) {
+  const entry = DB.entry(date);
+  if (!entry) return;
+
+  navigate('today');
+
+  document.getElementById('f-date').value       = entry.date;
+  document.getElementById('f-study').value       = entry.studyHours || 0;
+  document.getElementById('r-study').value       = entry.studyHours || 0;
+  document.getElementById('d-study').textContent = (entry.studyHours||0) + 'h';
+
+  document.getElementById('f-improve').value       = entry.selfImprovePct || 0;
+  document.getElementById('r-improve').value       = entry.selfImprovePct || 0;
+  document.getElementById('d-improve').textContent = (entry.selfImprovePct||0) + '%';
+
+  document.getElementById('f-mock').value       = entry.mockScore || 0;
+  document.getElementById('r-mock').value       = entry.mockScore || 0;
+  document.getElementById('d-mock').textContent = entry.mockScore || 0;
+
+  document.getElementById('f-notes').value = entry.notes || '';
+
+  // Reset activities
+  checkedActs.clear();
+  ACTIVITIES.forEach(a => {
+    const el = document.getElementById(`act-${a.key}`);
+    if (el) el.classList.remove('checked');
+  });
+
+  if (entry.acts) {
+    ACTIVITIES.forEach(a => {
+      if (entry.acts[a.key]) {
+        checkedActs.add(a.key);
+        document.getElementById(`act-${a.key}`)?.classList.add('checked');
+      }
+    });
+  }
+
+  updateLiveScore();
+  renderActStatusList();
+  showToast(`Loaded ${displayDate(date)}`, 'info');
+}
+
+function deleteEntryUI(date) {
+  if (!confirm(`Delete entry for ${displayDate(date)}?`)) return;
+  DB.deleteEntry(date);
+  renderHistory();
+  renderMetricCards();
+  renderSbStreaks();
+  renderStreaks();
+  renderGoalProgress();
+  showToast('Entry deleted', 'warning');
+}
+
+function resetForm() {
+  document.getElementById('f-date').value = todayStr();
+  ['study','improve','mock'].forEach(t => {
+    const suffix = { study:'h', improve:'%', mock:'' }[t];
+    document.getElementById(`f-${t}`).value = 0;
+    document.getElementById(`r-${t}`).value = 0;
+    document.getElementById(`d-${t}`).textContent = '0' + suffix;
+  });
+  document.getElementById('f-notes').value = '';
+  checkedActs.clear();
+  ACTIVITIES.forEach(a => document.getElementById(`act-${a.key}`)?.classList.remove('checked'));
+  updateLiveScore();
+  renderActStatusList();
+}
+
+/* ══════════════════════════════════════════
+   GOALS
+   ══════════════════════════════════════════ */
+function saveGoals() {
+  const g = {
+    study:   parseFloat(document.getElementById('g-study')?.value)   || 6,
+    improve: parseInt(document.getElementById('g-improve')?.value)   || 75,
+    mock:    parseInt(document.getElementById('g-mock')?.value)      || 150,
+    acts:    parseInt(document.getElementById('g-acts')?.value)      || 4,
+    streak:  parseInt(document.getElementById('g-streak')?.value)    || 30,
+  };
+  DB.saveGoals(g);
+  renderGoalProgress();
+  renderStreaks();
+  updateLiveScore();
+  showToast('Goals saved! 🎯', 'success');
+}
+
+function loadGoalsForm() {
+  const g = DB.goals();
+  document.getElementById('g-study').value   = g.study;
+  document.getElementById('g-improve').value = g.improve;
+  document.getElementById('g-mock').value    = g.mock;
+  document.getElementById('g-acts').value    = g.acts;
+  document.getElementById('g-streak').value  = g.streak;
+}
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+   ══════════════════════════════════════════ */
+const VIEWS = ['today','history','analytics','goals'];
+let currentView = 'today';
+
+function navigate(view) {
+  VIEWS.forEach(v => {
+    document.getElementById(`view-${v}`)?.classList.remove('active');
+    document.getElementById(`nav-${v}`)?.classList.remove('active');
+  });
+  document.getElementById(`view-${view}`)?.classList.add('active');
+  document.getElementById(`nav-${view}`)?.classList.add('active');
+
+  const labels = { today:'Dashboard · Today', history:'History', analytics:'Analytics', goals:'Goals' };
+  const bc = document.getElementById('breadcrumb');
+  if (bc) bc.textContent = labels[view] || view;
+
+  currentView = view;
+
+  if (view === 'analytics') setTimeout(initAllCharts, 80);
+  if (view === 'history')   renderHistory();
+  if (view === 'goals')     { loadGoalsForm(); renderGoalProgress(); }
+
+  closeSidebar();
+  window.scrollTo(0, 0);
+}
+
+/* ══════════════════════════════════════════
+   THEME
+   ══════════════════════════════════════════ */
+let _dark = true;
+function toggleTheme() {
+  _dark = !_dark;
+  applyTheme();
+}
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', _dark ? 'dark' : 'light');
+  DB.setTheme(_dark ? 'dark' : 'light');
+  const t = document.getElementById('theme-toggle');
+  if (t) { _dark ? t.classList.add('on') : t.classList.remove('on'); }
+  if (currentView === 'analytics') setTimeout(initAllCharts, 80);
+}
+
+/* ══════════════════════════════════════════
+   SIDEBAR (mobile)
+   ══════════════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById('sidebar')?.classList.toggle('open');
+  document.getElementById('sidebar-overlay')?.classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('show');
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════════ */
+let _toastTimer = null;
+function showToast(msg, type='success') {
+  const toast = document.getElementById('toast');
+  const icon  = document.getElementById('toast-icon');
+  const text  = document.getElementById('toast-text');
+  if (!toast || !text) return;
+  const map = { success:{ i:'✓', c:'var(--success)' }, info:{ i:'ℹ', c:'var(--cyan)' },
+                warning:{ i:'⚠', c:'var(--orange)' }, error:{ i:'✕', c:'var(--rose)' } };
+  const m = map[type] || map.success;
+  if (icon) { icon.textContent = m.i; icon.style.color = m.c; }
+  text.textContent = msg;
+  toast.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+/* ══════════════════════════════════════════
+   EXPORT
+   ══════════════════════════════════════════ */
+function exportData(fmt) {
+  const entries = DB.sortedEntries(true);
+  if (!entries.length) { showToast('No data to export', 'warning'); return; }
+
+  if (fmt === 'json') {
+    const blob = new Blob([
+      JSON.stringify({ entries, goals: DB.goals(), exportedAt: new Date().toISOString() }, null, 2)
+    ], { type:'application/json' });
+    dlBlob(blob, `progress-${todayStr()}.json`);
+    showToast('Exported as JSON!', 'success');
+    return;
+  }
+
+  if (fmt === 'csv') {
+    const headers = ['date','studyHours','selfImprovePct','mockScore',
+      ...ACTIVITIES.map(a=>a.key), 'progressScore','notes'];
+    const rows = entries.map(e => [
+      e.date, e.studyHours||0, e.selfImprovePct||0, e.mockScore||0,
+      ...ACTIVITIES.map(a => (e.acts?.[a.key] ? 1 : 0)),
+      calcScore(e),
+      `"${(e.notes||'').replace(/"/g,'""')}"`
+    ]);
+    const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+    dlBlob(new Blob([csv], { type:'text/csv' }), `progress-${todayStr()}.csv`);
+    showToast('Exported as CSV!', 'success');
+  }
+}
+
+function dlBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = Object.assign(document.createElement('a'), { href:url, download:filename });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════════
+   REFRESH ALL UI
+   ══════════════════════════════════════════ */
+function refreshAll() {
+  renderMetricCards();
+  renderActStatusList();
+  renderStreaks();
+  renderSbStreaks();
+  updateLiveScore();
+}
+
+/* ══════════════════════════════════════════
+   SAMPLE DATA (demo — runs once if no data)
+   ══════════════════════════════════════════ */
+function maybeLoadSampleData() {
+  if (Object.keys(DB.entries()).length > 0) return;
+
+  // Seed 20 days of realistic data so the dashboard looks great out-of-the-box
+  const seed = [
+    [1,6.5,82,155,['workout','reading','journaling','calculation'],'Great session on probability!'],
+    [2,5.0,70,148,['walking','reading','contentCreation'],''],
+    [3,7.0,88,162,['workout','walking','reading','journaling','calculation','contentCreation'],'Personal best day!'],
+    [4,4.5,65,140,['workout','reading'],''],
+    [5,6.0,75,150,['walking','reading','calculation','journaling'],''],
+    [6,0,  40,120,['walking'],'Rest day but still walked.'],
+    [7,5.5,72,145,['workout','reading','journaling'],''],
+    [8,6.5,80,158,['workout','walking','reading','calculation','journaling'],''],
+    [9,7.5,90,168,['workout','walking','reading','journaling','calculation','contentCreation'],'Absolutely crushed it.'],
+    [10,5.0,68,142,['workout','reading'],''],
+    [11,6.0,78,153,['walking','calculation','reading','journaling'],''],
+    [12,4.0,60,138,['reading','walking'],'Tired day'],
+    [13,6.5,83,160,['workout','reading','journaling','calculation','contentCreation'],''],
+    [14,7.0,85,165,['workout','walking','reading','journaling','calculation'],''],
+    [15,5.5,74,149,['workout','walking','reading'],''],
+    [16,6.0,79,155,['workout','walking','reading','calculation','journaling'],''],
+    [17,3.5,55,130,['reading'],''],
+    [18,6.5,81,158,['workout','reading','journaling','calculation'],''],
+    [19,7.0,87,163,['workout','walking','reading','journaling','calculation','contentCreation'],''],
+    [20,5.0,70,148,['walking','reading','journaling'],''],
+  ];
+
+  seed.forEach(([daysAgo, study, improve, mock, actKeys, notes]) => {
+    const d = new Date(); d.setDate(d.getDate() - (21 - daysAgo));
+    const acts = Object.fromEntries(ACTIVITIES.map(a => [a.key, actKeys.includes(a.key)]));
+    DB.saveEntry({
+      date: fmtDate(d),
+      studyHours: study,
+      selfImprovePct: improve,
+      mockScore: mock,
+      acts,
+      notes,
+      savedAt: new Date().toISOString(),
+    });
+  });
+}
+
+/* ══════════════════════════════════════════
+   INITIALISATION
+   ══════════════════════════════════════════ */
+function init() {
+  /* Theme */
+  _dark = DB.theme() !== 'light';
+  applyTheme();
+
+  /* Dates */
+  const ts = todayStr();
+  const sbDate = document.getElementById('sb-date');
+  if (sbDate) sbDate.textContent = displayDate(ts);
+  const fdl = document.getElementById('form-date-lbl');
+  if (fdl) fdl.textContent = displayDate(ts);
+
+  /* Set form date */
+  const dateInput = document.getElementById('f-date');
+  if (dateInput) dateInput.value = ts;
+
+  /* Render activity grid */
+  renderActivityGrid();
+
+  /* Load today if exists */
+  const todayEntry = DB.entry(ts);
+  if (todayEntry) {
+    loadEntry(ts); // pre-fill form silently
+  }
+
+  /* Render all UI */
+  renderQuote();
+  renderMetricCards();
+  renderActStatusList();
+  renderStreaks();
+  renderSbStreaks();
+  updateLiveScore();
+
+  /* Score donut initial */
+  buildScoreDonut(todayEntry ? calcScore(todayEntry) : 0);
+
+  /* Responsive check */
+  checkResponsive();
+  window.addEventListener('resize', checkResponsive);
+}
+
+function checkResponsive() {
+  const mb = document.getElementById('menu-btn');
+  if (mb) mb.style.display = window.innerWidth <= 768 ? 'inline-flex' : 'none';
+}
+
+/* Boot */
+document.addEventListener('DOMContentLoaded', () => {
+  maybeLoadSampleData();
+  init();
+});
+</script>
+</body>
+</html>
